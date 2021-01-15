@@ -2,10 +2,10 @@ import socket
 import discord
 import json
 import valve.rcon
-import datetime
 from discord.ext import commands, tasks
 from jishaku.functools import executor_function
 from valve.source.a2s import ServerQuerier
+from steam.steamid import SteamID
 
 @executor_function
 def load_json(json_path):
@@ -137,6 +137,30 @@ async def addserver(ctx, addr='', rcon_password=''): # Add server to servers.jso
     valve.rcon.execute(addr, rcon_password, cmd)
     valve.rcon.execute(addr, rcon_password, "log on")
 
+def parselog(log):
+    if 'say_team' in log:
+        log = log[27:].split(" say_team ")
+    else:
+        log = log[27:].split(" say ")
+    chat_info = log[0].split("><")
+    if len(chat_info) > 4:
+        log_send = f"{log[0]} : {log[1]}"
+    else:
+        misc = chat_info[0].split("<")
+        name = misc[0]
+        player_id = misc[1]
+        steam_id= chat_info[1]
+        steam_id_aux = steam_id.split(":")
+
+        group = SteamID(steam_id_aux[2][:-1])
+
+        steam_id_aux = group.as_steam2
+
+        team = chat_info[2][:-1]
+
+        log_send = f"**{name}** (#{player_id}) `{steam_id_aux}` <{team} :  {log[1][:-1]}"
+
+    return log_send
 
 
 @tasks.loop(seconds=0)
@@ -155,15 +179,8 @@ async def relay():
                 try:
                     channel_id = servers[server]["discord_channel_id"]
                     channel_id = client.get_channel(channel_id)
-                    chat = chat[25:].replace(">", "").split("<")
-                    name = chat[0].replace('"', "")
-                    msg = chat[3].split("say")
-                    msg = msg[1].replace('"', "")
-                    msg = msg[1:]
-                    if msg.startswith('team'):
-                        msg = msg.replace('team', '')
-                    log = f"**{name}** (#{chat[1]}) `{chat[2]}` : {msg}"
-                    await channel_id.send(log[:-1])
+                    log = parselog(chat)
+                    await channel_id.send(log)
                 except Exception as e:
                     print(f"Chat Relay Error: ({server}) | {e}")
                 break
