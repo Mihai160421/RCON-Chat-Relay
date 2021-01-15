@@ -5,7 +5,7 @@ import valve.rcon
 import datetime
 from discord.ext import commands, tasks
 from jishaku.functools import executor_function
-
+from valve.source.a2s import ServerQuerier
 
 @executor_function
 def load_json(json_path):
@@ -66,7 +66,6 @@ async def on_message(message):
 
 @client.command()
 async def cmd(ctx, *, cmd_):
-    print(f"Ex Command: {ctx}")
     servers = await load_json('./json/servers.json')
     for server in servers:
         channel_id = servers[server]["discord_channel_id"]
@@ -84,6 +83,29 @@ async def cmd(ctx, *, cmd_):
                 print(f"Command Error: {e}")
             break
 
+@client.command(aliases=['si', 'sinfo', 'serveri', 'info'])
+async def serverinfo(ctx):
+    # Valve Module error a2a.py ping function -> monotoic and t_send !!!!!!!!!!!!!!!!!!
+    servers = await load_json('./json/servers.json')
+    for server in servers:
+        channel_id = servers[server]["discord_channel_id"]
+        if ctx.channel.id == channel_id:
+            addr = server.split(":")
+            addr = (addr[0], int(addr[1]))
+            with ServerQuerier(addr) as server_queri:
+                server_info = server_queri.info()
+                ping = server_queri.ping()
+            embed = discord.Embed(title = server_info["server_name"])
+            embed.add_field(name='Game', value=server_info["game"], inline=False)
+            embed.add_field(name='Map', value=server_info["map"], inline=False)
+            embed.add_field(name='Players Online', value=server_info["player_count"], inline=False)
+            embed.add_field(name='Latency', value=f"{round(ping)} ms.", inline=False)
+            embed.add_field(name='Bot Count', value=server_info["bot_count"], inline=False)
+            embed.add_field(name='Vac Enabled', value=True if server_info["vac_enabled"] == 1 else False, inline=False)
+            embed.add_field(name='Version', value=server_info["version"], inline=False)
+
+            await ctx.send(embed=embed)
+            break
 
 @client.command()
 @commands.has_permissions(administrator=True) # Administrator permission required (user)
