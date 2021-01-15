@@ -95,7 +95,7 @@ async def serverinfo(ctx):
             with ServerQuerier(addr) as server_queri:
                 server_info = server_queri.info()
                 ping = server_queri.ping()
-            embed = discord.Embed(title = server_info["server_name"])
+            embed = discord.Embed(title = server_info["server_name"], description=server)
             embed.add_field(name='Game', value=server_info["game"], inline=False)
             embed.add_field(name='Map', value=server_info["map"], inline=False)
             embed.add_field(name='Players Online', value=server_info["player_count"], inline=False)
