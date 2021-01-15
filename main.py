@@ -2,8 +2,10 @@ import socket
 import discord
 import json
 import valve.rcon
+import datetime
 from discord.ext import commands, tasks
 from jishaku.functools import executor_function
+
 
 @executor_function
 def load_json(json_path):
@@ -24,17 +26,17 @@ with open('./json/config.json', 'r') as file:
     TOKEN = CONFIG["token"]
     PREFIX = CONFIG["command_prefix"]
 
+
 SERVER_LOCAL_IP = socket.gethostbyname(socket.gethostname()) # Get local ip
 
 ADDR = (SERVER_LOCAL_IP, PORT)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(ADDR)
-
+sock.settimeout(0.001) # Recv Timeout
 
 intents = discord.Intents.default()
 intents.members=True
-client = commands.Bot(command_prefix=PREFIX, intents=intents)
-
+client = commands.Bot(command_prefix='>', intents=intents)
 
 
 @client.event
@@ -60,9 +62,11 @@ async def on_message(message):
             addr = (addr[0], int(addr[1]))
             rcon_password = servers[server]["rcon_password"]
             valve.rcon.execute(addr, rcon_password, f"say {message.content}") # Send sm_say [msg] to console
+            break
 
 @client.command()
 async def cmd(ctx, *, cmd_):
+    print(f"Ex Command: {ctx}")
     servers = await load_json('./json/servers.json')
     for server in servers:
         channel_id = servers[server]["discord_channel_id"]
@@ -73,8 +77,10 @@ async def cmd(ctx, *, cmd_):
             try:
                 command = valve.rcon.execute(addr, rcon_password, cmd_)
                 await ctx.send(f"***__{command}__***")
-            except:
-                pass
+            except Exception as e:
+                print(f"Command Error: {e}")
+            break
+
 
 @client.command()
 @commands.has_permissions(administrator=True) # Administrator permission required (user)
@@ -107,23 +113,35 @@ async def addserver(ctx, addr='', rcon_password=''): # Add server to servers.jso
     valve.rcon.execute(addr, rcon_password, "log on")
 
 
+
 @tasks.loop(seconds=0)
 async def relay():
     servers = await load_json('./json/servers.json')
-    data = sock.recvfrom(4096)
+    try:
+        data = sock.recvfrom(4096)
+    except socket.timeout as e:
+        return
     chat = data[0].decode('utf-8', 'ignore')
     adr = data[1]
+    print(f"Rec From {adr} -> {chat}")
     if '<[U:' in chat and chat.startswith('RL') and 'say' in chat:
         for server in servers:
             if server == f"{adr[0]}:{adr[1]}":
-                channel_id = servers[server]["discord_channel_id"]
-                channel_id = client.get_channel(channel_id)
-                chat = chat[25:].replace(">", "").split("<")
-                name = chat[0].replace('"', "")
-                msg = chat[3].split("say")
-                msg = msg[1].replace('"', "")
-                log = f"**{name}** (#{chat[1]}) `{chat[2]}` : {msg}"
-                await channel_id.send(log[:-1])
+                try:
+                    channel_id = servers[server]["discord_channel_id"]
+                    channel_id = client.get_channel(channel_id)
+                    chat = chat[25:].replace(">", "").split("<")
+                    name = chat[0].replace('"', "")
+                    msg = chat[3].split("say")
+                    msg = msg[1].replace('"', "")
+                    msg = msg[1:]
+                    if msg.startswith('team'):
+                        msg = msg.replace('team', '')
+                    log = f"**{name}** (#{chat[1]}) `{chat[2]}` : {msg}"
+                    await channel_id.send(log[:-1])
+                except Exception as e:
+                    print(f"Chat Relay Error: ({server}) | {e}")
+                break
     elif '<Console><Console>' in chat:
         for server in servers:
             if server == f"{adr[0]}:{adr[1]}":
@@ -131,6 +149,7 @@ async def relay():
                 channel_id = client.get_channel(channel_id)
                 chat = chat[46:].replace('"', "")
                 await channel_id.send(f"**`{chat[:-1]}`**")
+                break
     elif '<[U:' in chat and chat.startswith('RL') and 'disconnected' in chat:
         for server in servers:
             if server == f"{adr[0]}:{adr[1]}":
@@ -138,6 +157,7 @@ async def relay():
                 channel_id = client.get_channel(channel_id)
                 chat = chat[25:]
                 await channel_id.send(f"`{chat[:-1]}`")
+                break
     elif '<[U:' in chat and chat.startswith('RL') and 'connected' in chat:
         for server in servers:
             if server == f"{adr[0]}:{adr[1]}":
@@ -145,5 +165,10 @@ async def relay():
                 channel_id = client.get_channel(channel_id)
                 chat = chat[25:]
                 await channel_id.send(f"`{chat[:-1]}`")
+                break
+    else:
+        pass
+
+
 client.run(TOKEN)
 
