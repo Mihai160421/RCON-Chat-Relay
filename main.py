@@ -58,10 +58,15 @@ async def on_message(message):
     for server in servers:
         channel_id = servers[server]["discord_channel_id"]
         if message.channel.id == channel_id:
+            author = message.author.name
             addr = server.split(":")
             addr = (addr[0], int(addr[1]))
+            send_msg = f"sm_say {author} : {message.content}".encode("utf-8")
             rcon_password = servers[server]["rcon_password"]
-            valve.rcon.execute(addr, rcon_password, f"say {message.content}") # Send sm_say [msg] to console
+            try:
+                valve.rcon.execute(addr, rcon_password, send_msg) # Send sm_say [msg] to console
+            except:
+                pass # Stupid fix
             break
 
 @client.command()
