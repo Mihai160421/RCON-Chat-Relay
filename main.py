@@ -75,7 +75,10 @@ async def cmd(ctx, *, cmd_):
             addr = (addr[0], int(addr[1]))
             rcon_password = servers[server]["rcon_password"]
             try:
-                command = valve.rcon.execute(addr, rcon_password, cmd_)
+                rcon = valve.rcon.RCON(addr, rcon_password, timeout=None)
+                rcon.connect()
+                rcon.authenticate()
+                command = rcon.__call__(cmd_)
                 await ctx.send(f"***__{command}__***")
             except Exception as e:
                 print(f"Command Error: {e}")
