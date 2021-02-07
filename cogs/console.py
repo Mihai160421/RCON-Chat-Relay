@@ -1,7 +1,6 @@
 
 import discord
 import json
-import re
 import valve.rcon
 from discord.ext import commands
 from jishaku.functools import executor_function
@@ -55,7 +54,7 @@ def format_status_log(log):
 
 
 
-class ChatRelay(commands.Cog):
+class Console(commands.Cog):
 
     def __init__(self, client):
         self.client = client
@@ -114,12 +113,15 @@ class ChatRelay(commands.Cog):
                     if cmd_ == 'status':
                         response_text = response_text.split("#")
                         for item in range(2, len(response_text)):
-                            if item < len(response_text)/2:
-                                add = format_status_log(response_text[item])
-                                log1 = log1 + add + "\n"
-                            else:
-                                add = format_status_log(response_text[item])
-                                log2 = log2 + add + "\n"
+                            try:
+                                if item < len(response_text)//2:
+                                    add = format_status_log(response_text[item])
+                                    log1 = log1 + add + "\n"
+                                else:
+                                    add = format_status_log(response_text[item])
+                                    log2 = log2 + add + "\n"
+                            except:
+                                await ctx.send(response_text[item])
                         log1 = log1 + f"{chr(701)}"
                         await ctx.send(log1)
                         await ctx.send(log2)
@@ -154,4 +156,4 @@ class ChatRelay(commands.Cog):
                 break
 
 def setup(client):
-    client.add_cog(ChatRelay(client))
+    client.add_cog(Console(client))
