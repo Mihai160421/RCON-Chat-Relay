@@ -25,18 +25,18 @@ with open('./json/config.json', 'r') as file:
 
 SERVER_LOCAL_IP = socket.gethostbyname(socket.gethostname()) # Get local ip
 
+global servers
+with open("./json/servers.json", 'r') as file:
+    servers = json.load(file)
+
 ADDR = (SERVER_LOCAL_IP, PORT)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(ADDR)
 sock.settimeout(0.001) # Recv Timeout
 
-def parselog(log):
-    if 'say_team' in log:
-        log = log[27:].split(" say_team ")
-        team_show = "<team>"
-    else:
-        team_show = ""
-        log = log[27:].split(" say ")
+def parselog_say(log):
+    log = log[27:].split(" say ")
+
     chat_info = log[0].split("><")
     if len(chat_info) > 4:
         log_send = f"{log[0]} : {log[1]}"
@@ -53,11 +53,32 @@ def parselog(log):
 
         team = chat_info[2][:-1]
 
-        log_send = f"**{name}** (#{player_id}) `{steam_id_aux}` <{team} {team_show}:  {log[1][:-1]}"
+        log_send = f"**{name}** (#{player_id}) `{steam_id_aux}` :  {log[1][:-1]}"
 
     return log_send
 
+def parselog_sayteam(log):
+    log = log[27:].split(" say_team ")
+    log = log[27:].split(" say ")
+    chat_info = log[0].split("><")
+    if len(chat_info) > 4:
+        log_send = f"{log[0]} : {log[1]}"
+    else:
+        misc = chat_info[0].split("<")
+        name = misc[0]
+        player_id = misc[1]
+        steam_id= chat_info[1]
+        steam_id_aux = steam_id.split(":")
 
+        group = SteamID(steam_id_aux[2][:-1])
+
+        steam_id_aux = group.as_steam2
+
+        team = chat_info[2][:-1]
+
+        log_send = f"**{name}** (#{player_id}) `{steam_id_aux}` <{team} <team>:  {log[1][:-1]}"
+
+    return log_send
 
 class ChatRelay(commands.Cog):
 
@@ -65,10 +86,10 @@ class ChatRelay(commands.Cog):
         self.client = client
         self.relay.start()
 
-
     @tasks.loop(seconds=0)
     async def relay(self):
-        servers = await load_json('./json/servers.json')
+        global server
+        #servers = await load_json('./json/servers.json')
         try:
             data = sock.recvfrom(4096)
         except socket.timeout as e:
@@ -82,7 +103,18 @@ class ChatRelay(commands.Cog):
                     try:
                         channel_id = servers[server]["discord_channel_id"]
                         channel_id = self.client.get_channel(channel_id)
-                        log = parselog(chat)
+                        log = parselog_say(chat)
+                        await channel_id.send(log)
+                    except Exception as e:
+                        print(f"Chat Relay Error: ({server}) | {e}")
+                    break
+        elif 'say_team' in chat:
+            for server in servers:
+                if server == f"{adr[0]}:{adr[1]}":
+                    try:
+                        channel_id = servers[server]["discord_channel_id"]
+                        channel_id = self.client.get_channel(channel_id)
+                        log = parselog_sayteam(chat)
                         await channel_id.send(log)
                     except Exception as e:
                         print(f"Chat Relay Error: ({server}) | {e}")
@@ -95,7 +127,7 @@ class ChatRelay(commands.Cog):
                     chat = chat[25:]
                     await channel_id.send(f"**`{chat[:-1]}`**")
                     break
-        elif '<[U:' in chat and chat.startswith('RL') and 'disconnected' in chat:
+        elif 'disconnected' in chat:
             for server in servers:
                 if server == f"{adr[0]}:{adr[1]}":
                     channel_id = servers[server]["discord_channel_id"]
@@ -103,12 +135,20 @@ class ChatRelay(commands.Cog):
                     chat = chat[25:]
                     await channel_id.send(f"`{chat[:-1]}`")
                     break
-        elif '<[U:' in chat and chat.startswith('RL') and 'connected' in chat:
+        elif 'connected' in chat:
             for server in servers:
                 if server == f"{adr[0]}:{adr[1]}":
                     channel_id = servers[server]["discord_channel_id"]
                     channel_id = self.client.get_channel(channel_id)
                     chat = chat[25:]
+                    await channel_id.send(f"`{chat[:-1]}`")
+                    break
+        elif '.smx]' in chat:
+            for server in servers:
+                if server == f"{adr[0]}:{adr[1]}":
+                    channel_id = servers[server]["discord_channel_id"]
+                    channel_id = self.client.get_channel(channel_id)
+                    #chat = chat[25:]
                     await channel_id.send(f"`{chat[:-1]}`")
                     break
         else:
