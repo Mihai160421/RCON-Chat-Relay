@@ -5,7 +5,6 @@ import valve.rcon
 from discord.ext import commands
 from jishaku.functools import executor_function
 from valve.source.a2s import ServerQuerier
-import valve.rcon
 from steam.steamid import SteamID
 
 valve.rcon.RCONMessage.ENCODING = "utf-8"
@@ -26,6 +25,9 @@ with open('./json/config.json', 'r') as file:
     #PORT = CONFIG["port"]
     PREFIX = CONFIG["command_prefix"]
 
+global servers
+with open("./json/servers.json", 'r') as file:
+    servers = json.load(file)
 
 def format_status_log(log):
     new_log = ' '.join([x for x in log.split(' ') if len(x)>0])
@@ -52,8 +54,6 @@ def format_status_log(log):
     text = f'(#{game_id}) "{player_name}" `{steam_id_aux}` <{connected}> <{ping} ms> <{state}> `{ip}`'
     return text
 
-
-
 class Console(commands.Cog):
 
     def __init__(self, client):
@@ -70,7 +70,8 @@ class Console(commands.Cog):
         if message.author == self.client.user:      # Ignore bot
             return
 
-        servers = await load_json('./json/servers.json')
+        global servers
+        #servers = await load_json('./json/servers.json')
         for server in servers:
             channel_id = servers[server]["discord_channel_id"]
             if message.channel.id == channel_id:
@@ -87,7 +88,8 @@ class Console(commands.Cog):
 
     @commands.command(aliases=['c'])
     async def cmd(self, ctx, *, cmd_):
-        servers = await load_json('./json/servers.json')
+        global servers
+        #servers = await load_json('./json/servers.json')
         for server in servers:
             channel_id = servers[server]["discord_channel_id"]
             if ctx.channel.id == channel_id:
@@ -134,7 +136,8 @@ class Console(commands.Cog):
     @commands.command(aliases=['si', 'sinfo', 'serveri', 'info'])
     async def serverinfo(self, ctx):
         # Valve Module error a2a.py ping function -> monotoic and t_send !!!!!!!!!!!!!!!!!!
-        servers = await load_json('./json/servers.json')
+        global servers
+        #servers = await load_json('./json/servers.json')
         for server in servers:
             channel_id = servers[server]["discord_channel_id"]
             if ctx.channel.id == channel_id:
