@@ -87,12 +87,12 @@ class ChatRelay(commands.Cog):
                     except Exception as e:
                         print(f"Chat Relay Error: ({server}) | {e}")
                     break
-        elif '<Console><Console>' in chat:
+        elif 'rcon from' in chat:
             for server in servers:
                 if server == f"{adr[0]}:{adr[1]}":
                     channel_id = servers[server]["discord_channel_id"]
                     channel_id = self.client.get_channel(channel_id)
-                    chat = chat[46:].replace('"', "")
+                    chat = chat[25:]
                     await channel_id.send(f"**`{chat[:-1]}`**")
                     break
         elif '<[U:' in chat and chat.startswith('RL') and 'disconnected' in chat:
